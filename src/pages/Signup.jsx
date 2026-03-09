@@ -173,7 +173,7 @@ export default function Signup() {
                 {...register('terms', { required: 'You must accept the terms' })}
                 type="checkbox"
                 id="terms"
-                className="w-6 h-6 accent-white bg-neutral-800 border-2 border-neutral-500 rounded focus:ring-2 focus:ring-indigo-400 transition-colors"
+                className="w-8 h-8 accent-indigo-400 bg-neutral-700 border-3 border-neutral-400 rounded focus:ring-2 focus:ring-indigo-400 transition-colors"
               />
               <label htmlFor="terms" className="text-sm text-neutral-200 cursor-pointer">
                 I agree to the <Link to="/terms" className="text-white hover:underline">Terms and Conditions</Link>
