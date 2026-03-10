@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { useStore } from '../store/useStore';
+import { useAuthStore } from '../store/authStore';
+import { supabase } from '../lib/supabase';
 import { 
   BarChart3, List, Settings, CreditCard, 
   MapPin, Power, Plus, Upload, Trash2, 
@@ -14,63 +15,62 @@ import * as XLSX from 'xlsx';
 export default function Dashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user, setUser } = useStore();
+  const { session, business, loading: authLoading } = useAuthStore();
   const [activeTab, setActiveTab] = useState('overview');
 
   // Auth Guard
   useEffect(() => {
-    if (!user?.token) {
+    if (!authLoading && !session?.user) {
       navigate('/login');
     }
-  }, [user, navigate]);
+  }, [session, authLoading, navigate]);
 
-  // Fetch Business Data
-  const { data: businessData, isLoading: businessLoading } = useQuery({
-    queryKey: ['my-business'],
-    queryFn: async () => {
-      const res = await fetch('/api/auth/me', {
-        headers: { 'Authorization': `Bearer ${user.token}` }
-      });
-      if (!res.ok) throw new Error('Unauthorized');
-      return res.json();
-    },
-    enabled: !!user?.token
-  });
+  // Fetch Business Data from authStore (already loaded)
+  const businessLoading = authLoading;
 
-  // Fetch Listings
+  // Fetch Listings via Supabase
   const { data: listings, isLoading: listingsLoading } = useQuery({
     queryKey: ['my-listings'],
     queryFn: async () => {
-      const res = await fetch('/api/listings', {
-        headers: { 'Authorization': `Bearer ${user.token}` }
-      });
-      return res.json();
+      const { data, error } = await supabase
+        .from('items')
+        .select('*')
+        .eq('business_id', business.id);
+      if (error) throw error;
+      return { results: data };
     },
-    enabled: !!user?.token
+    enabled: !!business?.id
   });
 
   // Mutations
+  const { signOut } = useAuthStore();
   const toggleOpen = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/business/toggle-open', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.token}` 
-        },
-      });
-      return res.json();
+      const newVal = !business.is_open;
+      const { error } = await supabase
+        .from('businesses')
+        .update({ is_open: newVal, updated_at: new Date() })
+        .eq('id', business.id);
+      if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries(['my-business'])
+    onSuccess: () => {
+      queryClient.invalidateQueries(['my-business']);
+    }
   });
 
-  if (businessLoading || !businessData) return (
+  if (businessLoading) return (
     <div className="h-screen w-full flex items-center justify-center bg-[#080A0F]">
       <Loader2 className="animate-spin text-white w-12 h-12" />
     </div>
   );
 
-  const business = businessData.business;
+  if (!business) return (
+    <div className="h-screen w-full flex items-center justify-center bg-[#080A0F] text-white flex-col gap-4">
+      <Loader2 className="animate-spin w-12 h-12" />
+      <p className="text-neutral-400">No business found. Please contact support.</p>
+    </div>
+  );
+
   const isSubActive = business.subscription_status === 'active';
   const isMapVisible = business.is_open && isSubActive;
 
@@ -93,7 +93,7 @@ export default function Dashboard() {
                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${business.is_open ? 'left-5.5' : 'left-0.5'}`} />
               </button>
             </div>
-            <button onClick={() => setUser(null)} className="p-2 text-neutral-500 hover:text-white transition-colors">
+            <button onClick={() => signOut()} className="p-2 text-neutral-500 hover:text-white transition-colors">
               <Power size={18} />
             </button>
           </div>
@@ -134,8 +134,8 @@ export default function Dashboard() {
         {/* Tab Content */}
         <section className="flex-1 bg-neutral-900/30 rounded-[32px] border border-white/5 p-8 relative min-h-[600px]">
           {activeTab === 'overview' && <OverviewTab business={business} isMapVisible={isMapVisible} listingsCount={listings?.results?.length || 0} />}
-          {activeTab === 'listings' && <ListingsTab listings={listings?.results || []} queryClient={queryClient} user={user} />}
-          {activeTab === 'info' && <InfoTab business={business} user={user} queryClient={queryClient} />}
+          {activeTab === 'listings' && <ListingsTab listings={listings?.results || []} loading={listingsLoading} queryClient={queryClient} />}
+          {activeTab === 'info' && <InfoTab business={business} queryClient={queryClient} />}
           {activeTab === 'subscription' && <SubscriptionTab business={business} />}
         </section>
       </main>
@@ -183,22 +183,19 @@ function CheckBox({ isChecked }) {
   );
 }
 
-function ListingsTab({ listings, queryClient, user }) {
+function ListingsTab({ listings, loading, queryClient }) {
   const [showAdd, setShowAdd] = useState(false);
   const [formData, setFormData] = useState({ name: '', type: 'product', price: '', available: true });
   const [isBulkLoading, setIsBulkLoading] = useState(false);
 
   const addMutation = useMutation({
     mutationFn: async (data) => {
-      const res = await fetch('/api/listings', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.token}` 
-        },
-        body: JSON.stringify(data)
-      });
-      return res.json();
+      const { data: session } = await supabase.auth.getSession();
+      const uid = session?.user?.id;
+      const { error } = await supabase
+        .from('items')
+        .insert([{ business_id: uid, ...data }]);
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['my-listings']);
@@ -209,14 +206,39 @@ function ListingsTab({ listings, queryClient, user }) {
 
   const toggleStatus = useMutation({
     mutationFn: async ({ id, key }) => {
-      await fetch(`/api/listings/${id}/toggle`, {
-        method: 'PATCH',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.token}` 
-        },
-        body: JSON.stringify({ field: key })
-      });
+      const { data: session } = await supabase.auth.getSession();
+      const uid = session?.user?.id;
+      const update = {};
+      update[key] = true; // value doesn't matter, we will flip server side
+      // We'll fetch current value and flip
+      const { data: item, error: fetchErr } = await supabase
+        .from('items')
+        .select(key)
+        .eq('id', id)
+        .eq('business_id', uid)
+        .single();
+      if (fetchErr) throw fetchErr;
+      const newVal = !item[key];
+      const { error } = await supabase
+        .from('items')
+        .update({ [key]: newVal })
+        .eq('id', id)
+        .eq('business_id', uid);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries(['my-listings'])
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id) => {
+      const { data: session } = await supabase.auth.getSession();
+      const uid = session?.user?.id;
+      const { error } = await supabase
+        .from('items')
+        .delete()
+        .eq('id', id)
+        .eq('business_id', uid);
+      if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries(['my-listings'])
   });
@@ -231,15 +253,18 @@ function ListingsTab({ listings, queryClient, user }) {
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const json = XLSX.utils.sheet_to_json(sheet);
       
-      // Send to bulk API
-      await fetch('/api/listings/bulk', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.token}` 
-        },
-        body: JSON.stringify({ listings: json })
-      });
+      // prepare rows with defaults
+      const { data: session } = await supabase.auth.getSession();
+      const uid = session?.user?.id;
+      const rows = json.map(r => ({
+        business_id: uid,
+        name: r['Item Name'] || r.name || '',
+        price: r['Price'] || r.price || null,
+        type: r['Type'] || r.type || null,
+        available: true,
+      }));
+      const { error } = await supabase.from('items').insert(rows);
+      if (error) console.error('bulk insert error', error);
       queryClient.invalidateQueries(['my-listings']);
       setIsBulkLoading(false);
     };
@@ -247,6 +272,10 @@ function ListingsTab({ listings, queryClient, user }) {
   };
 
   const { getRootProps, getInputProps } = useDropzone({ onDrop, accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] } });
+
+  if (loading) return (
+    <div className="h-64 flex items-center justify-center"><Loader2 className="animate-spin text-white" size={32}/></div>
+  );
 
   return (
     <div className="space-y-8">
@@ -310,7 +339,7 @@ function ListingsTab({ listings, queryClient, user }) {
                   </button>
                 </td>
                 <td className="py-4 text-right pr-4">
-                  <button className="text-neutral-500 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
+                  <button onClick={() => deleteMutation.mutate(item.id)} className="text-neutral-500 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
                 </td>
               </tr>
             ))}
@@ -321,20 +350,35 @@ function ListingsTab({ listings, queryClient, user }) {
   );
 }
 
-function InfoTab({ business, user, queryClient }) {
+function InfoTab({ business, queryClient }) {
   const [form, setForm] = useState({ ...business });
+  const [msg, setMsg] = useState(null);
+
+  useEffect(() => {
+    setForm({ ...business });
+  }, [business]);
+  const [currentPwd, setCurrentPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [pwdMsg, setPwdMsg] = useState(null);
 
   const update = useMutation({
     mutationFn: async (data) => {
-      const res = await fetch('/api/business/update', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.token}` 
-        },
-        body: JSON.stringify(data)
-      });
-      return res.json();
+      const { data: session } = await supabase.auth.getSession();
+      const uid = session?.user?.id;
+      const { error } = await supabase
+        .from('businesses')
+        .update({ ...data, updated_at: new Date() })
+        .eq('id', uid);
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      setMsg('Saved successfully');
+      queryClient.invalidateQueries(['my-business']);
+    },
+    onError: (e) => {
+      setMsg(e.message);
     }
   });
 
@@ -342,6 +386,27 @@ function InfoTab({ business, user, queryClient }) {
     navigator.geolocation.getCurrentPosition(pos => {
       setForm({ ...form, lat: pos.coords.latitude, lng: pos.coords.longitude });
     });
+  };
+
+  const changePassword = async () => {
+    setPwdMsg(null);
+    if (newPwd !== confirmPwd) {
+      setPwdMsg('Passwords do not match');
+      return;
+    }
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const email = session?.user?.email;
+      // verify current password
+      const { error: signErr } = await supabase.auth.signInWithPassword({ email, password: currentPwd });
+      if (signErr) throw signErr;
+      const { error: updErr } = await supabase.auth.updateUser({ password: newPwd });
+      if (updErr) throw updErr;
+      setPwdMsg('Password updated');
+      setCurrentPwd(''); setNewPwd(''); setConfirmPwd('');
+    } catch (e) {
+      setPwdMsg(e.message);
+    }
   };
 
   return (
@@ -352,6 +417,7 @@ function InfoTab({ business, user, queryClient }) {
           <Save size={16} /> Save Changes
         </button>
       </div>
+      {msg && <div className="text-sm text-green-500 mt-2">{msg}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
         <div className="space-y-6">
@@ -392,6 +458,38 @@ function InfoTab({ business, user, queryClient }) {
           </button>
         </div>
       </div>
+
+      {/* password change section */}
+      <div className="mt-12 space-y-4">
+        <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-500">Change Password</h3>
+        {pwdMsg && <div className="text-sm text-red-500">{pwdMsg}</div>}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <input
+            type="password"
+            placeholder="Current password"
+            className="bg-neutral-900 border border-white/5 rounded-2xl p-4"
+            value={currentPwd}
+            onChange={e => setCurrentPwd(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="New password"
+            className="bg-neutral-900 border border-white/5 rounded-2xl p-4"
+            value={newPwd}
+            onChange={e => setNewPwd(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="Confirm new password"
+            className="bg-neutral-900 border border-white/5 rounded-2xl p-4"
+            value={confirmPwd}
+            onChange={e => setConfirmPwd(e.target.value)}
+          />
+        </div>
+        <button onClick={changePassword} className="bg-white text-black px-6 py-2.5 rounded-full font-bold text-sm hover:bg-neutral-200 transition-colors">
+          Change Password
+        </button>
+      </div>
     </div>
   );
 }
@@ -416,7 +514,26 @@ function InputField({ label, value, onChange, icon }) {
 }
 
 function SubscriptionTab({ business }) {
-  const isExpired = new Date(business.subscription_expires_at) < new Date();
+  const { data: subscription } = useQuery({
+    queryKey: ['my-subscription'],
+    queryFn: async () => {
+      const { data: session } = await supabase.auth.getSession();
+      const uid = session?.user?.id;
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('business_id', uid)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!business
+  });
+
+  const record = subscription || business;
+  const isExpired = record.subscription_expires_at && new Date(record.subscription_expires_at) < new Date();
 
   return (
     <div className="space-y-8">
@@ -430,24 +547,21 @@ function SubscriptionTab({ business }) {
               <h3 className="text-2xl font-bold">Premium Early Access</h3>
             </div>
             <div className={`px-4 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${isExpired ? 'bg-red-500/20 text-red-500' : 'bg-green-500/20 text-green-500'}`}>
-              {business.subscription_status}
+              {record.subscription_status}
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 border-t border-white/5 pt-6">
             <div>
               <div className="text-neutral-500 text-[10px] uppercase font-bold tracking-widest mb-1">Last Payment</div>
-              <div className="font-mono text-sm">{new Date(business.created_at).toLocaleDateString()}</div>
+              <div className="font-mono text-sm">{record.paid_at ? new Date(record.paid_at).toLocaleDateString() : new Date(record.created_at).toLocaleDateString()}</div>
             </div>
             <div>
               <div className="text-neutral-500 text-[10px] uppercase font-bold tracking-widest mb-1">Expires On</div>
-              <div className="font-mono text-sm">{business.subscription_expires_at ? new Date(business.subscription_expires_at).toLocaleDateString() : 'N/A'}</div>
+              <div className="font-mono text-sm">{record.expires_at ? new Date(record.expires_at).toLocaleDateString() : 'N/A'}</div>
             </div>
           </div>
 
-          <button className="w-full bg-white text-black font-extrabold py-3.5 rounded-xl hover:bg-neutral-200 transition-colors text-sm">
-            Renew / Extend Subscription
-          </button>
         </div>
 
         <div className="bg-white/5 p-8 rounded-[32px] border border-dashed border-white/10 flex flex-col justify-center items-center text-center">

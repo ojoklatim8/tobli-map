@@ -7,8 +7,15 @@ import Signup from './pages/Signup';
 import EarlyAccess from './pages/EarlyAccess';
 import Dashboard from './pages/Dashboard';
 import Admin from './pages/Admin';
+import { useEffect } from 'react';
+import { useAuthStore } from './store/authStore';
 
 function App() {
+  // load session once on mount
+  useEffect(() => {
+    useAuthStore.getState().loadSession();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <Router>

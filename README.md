@@ -1,80 +1,82 @@
 # TOBLI - Business Directory
 
-A premium location-based business discovery platform built with React, Vite, and Cloudflare Pages.
+A location‑based business discovery platform built with React and Supabase.
 
 ## Tech Stack
--   **Frontend**: React + Vite + Tailwind CSS + Framer Motion
--   **Routing**: React Router v6
--   **State Management**: Zustand & TanStack Query
--   **Backend**: Cloudflare Pages Functions (Hono)
--   **Database**: Cloudflare D1 (SQLite)
--   **Search**: FTS5 Full Text Search
--   **Payments**: Pesapal v3
--   **Automations**: Cloudflare Cron Triggers
+- **Frontend**: React + Vite + Tailwind CSS + Framer Motion
+- **Routing**: React Router v6
+- **State Management**: Zustand & React Query (TanStack Query)
+- **Backend**: Supabase (Postgres, Auth, Functions)
+- **Maps**: Leaflet with custom markers
+- **Excel Parsing**: SheetJS (`xlsx`)
+- **Icons**: Lucide
+- **Deployment**: any static host (Cloudflare Pages, Vercel, Netlify, etc.)
 
-## Deployment Steps
+> Legacy Cloudflare D1 workers and cron scripts remain in `functions/` and `src/cron.js` but are no longer used by the current Supabase‑powered application.
 
-### 1. Create the D1 Database
-Run this command to create a new D1 database instance:
-```bash
-npx wrangler d1 create tobli-db
-```
-Copy the `database_id` from the output and paste it into your `wrangler.toml` file under `[[d1_databases]]`.
+## Getting Started
 
-### 2. Apply Database Migrations
-Run the initial schema migrations to set up the tables and FTS5 search index:
-```bash
-# Apply to local for development
-npm run db:migrate:local
-
-# Apply to production (remote)
-npm run db:migrate
-```
-
-### 3. Build & Deploy to Cloudflare Pages
-Build the production bundle and deploy it to Cloudflare:
-```bash
-npm run pages:deploy
-```
-
-## Development
-
-When working locally you'll want the frontend to hit the worker functions. there are two approaches:
-
-1. **Run the Pages dev server** (preferred):
+1. **Install dependencies**
    ```bash
-   npm run pages:dev
+   npm install
    ```
-   this starts the static site and the functions on the same port (5173), so `/api/...` requests are proxied automatically.
 
-2. **Use Vite alone**: the dev server has no `/api` routes, which results in 404 errors on login/signup. to avoid that set the `VITE_API_URL` env variable to the address where your functions are running (e.g. `http://localhost:8787` when using `wrangler dev`):
+2. **Create a Supabase project**
+   - Sign in at https://app.supabase.com and create a new project.
+   - Note the **Project URL** and **anon/public API key**.
+
+3. **Configure environment variables**
+   Create a `.env` file in the project root with the following values:
+   ```env
+   VITE_SUPABASE_URL=https://your-project.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-anon-key
+   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+   ```
+   > **Never** commit sensitive keys. The service role key is only used on the server (in `supabaseAdmin.js`).
+
+4. **Apply database schema**
+   The SQL migrations live in the `migrations/` directory. You can apply them via the Supabase SQL editor or the CLI:
    ```bash
-   VITE_API_URL=http://localhost:8787 npm run dev
+   # using the CLI (after installing and logging in)
+   supabase db push
+   # or manually run each file
+   supabase db reset --file migrations/0001_initial_schema.sql
+   supabase db reset --file migrations/0002_add_admin_flag.sql
    ```
-   the `safeFetch` helper will prefix the URL accordingly.
+   Ensure the `search_items` stored procedure (RPC) is also created; its definition is included in the first migration.
 
-## Security & Secrets
-Do not commit sensitive values. Use `wrangler` to securely store your secrets for production:
-```bash
-npx wrangler pages secret put JWT_SECRET
-npx wrangler pages secret put PESAPAL_CONSUMER_KEY
-npx wrangler pages secret put PESAPAL_CONSUMER_SECRET
-```
+5. **Run the development server**
+   ```bash
+   npm run dev
+   ```
+   The app will be available on `http://localhost:5173` by default.
 
-## Midnight Business Reset (Cron)
-The platform is configured to automatically close all businesses at midnight EAT (UTC+3) to ensure accuracy. This is controlled via the `[triggers]` block in `wrangler.toml`.
-
-To deploy the cron worker specifically:
-```bash
-npx wrangler deploy src/cron.js --name tobli-cron
-```
+6. **Build for production**
+   ```bash
+   npm run build
+   npm run preview    # to preview the production bundle locally
+   ```
+   Deploy the generated `dist/` directory to your preferred static host.
 
 ## Admin Access
-To access the admin dashboard at `/admin`, you must manually set your user's `is_admin` column to `1` in the database:
-```bash
-# Local
-npx wrangler d1 execute tobli-db --command "UPDATE businesses SET is_admin = 1 WHERE email = 'YOUR_EMAIL'" --local
-
-# Production
-npx wrangler d1 execute tobli-db --command "UPDATE businesses SET is_admin = 1 WHERE email = 'YOUR_EMAIL'" --remote
+To grant yourself admin privileges you can toggle the `is_admin` column on your business record via the Supabase dashboard or run SQL:
+```sql
+UPDATE businesses SET is_admin = TRUE WHERE email = 'your_email@example.com';
 ```
+Admins can visit `/admin` to manage businesses, view stats, and export payment logs.
+
+## Environment Variables
+| Name                      | Description                                      |
+|---------------------------|--------------------------------------------------|
+| VITE_SUPABASE_URL         | Public URL for the Supabase project              |
+| VITE_SUPABASE_ANON_KEY    | Public anon key used by the frontend             |
+| SUPABASE_SERVICE_ROLE_KEY | Secret service role key used by server code      |
+
+## Notes & Tips
+- Authentication and business metadata are handled via Supabase; the frontend lives in `src/`.  
+- The `src/lib/supabase.js` file exports the public client; `supabaseAdmin.js` uses the service role key for privileged operations.  
+- Search is performed by the `search_items` RPC, which must exist in your database.  
+- `src/pages/Dashboard.jsx` and `src/pages/Admin.jsx` contain the main business and admin logic respectively.  
+- Legacy Cloudflare functions (`functions/api/...`) were part of an earlier architecture and can be ignored or removed.
+
+Enjoy building with TOBLI! If anything changes in the architecture, update this README accordingly.

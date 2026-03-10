@@ -9,4 +9,11 @@ export const useStore = create((set) => ({
   
   searchQuery: '',
   setSearchQuery: (query) => set({ searchQuery: query }),
+
+  // search results from supabase.rpc
+  searchResults: [],
+  setSearchResults: (results) => set({ searchResults: results }),
+
+  currentIndex: 0,
+  setCurrentIndex: (i) => set({ currentIndex: i }),
 }));

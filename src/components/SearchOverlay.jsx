@@ -1,18 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Search, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store/useStore';
+import { supabase } from '../lib/supabase';
 
 export default function SearchOverlay() {
   const [text, setText] = useState('');
-  const [isTypingDone, setIsTypingDone] = useState(false);
   const [showSearchInput, setShowSearchInput] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [lat, setLat] = useState(0.3476);
+  const [lng, setLng] = useState(32.5825);
+  const [noResultsMessage, setNoResultsMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
   // prompt updated per request
   const fullText = "Looking for something?";
   
-  const { userLocation, setSelectedBusiness } = useStore();
+  const {
+    setSelectedBusiness,
+    setSearchResults,
+    setCurrentIndex,
+    searchResults,
+    currentIndex,
+  } = useStore();
 
   useEffect(() => {
     let currentPos = 0;
@@ -23,7 +33,6 @@ export default function SearchOverlay() {
       if (currentPos === fullText.length) {
         clearInterval(interval);
         setTimeout(() => {
-          setIsTypingDone(true);
           setTimeout(() => {
             setShowSearchInput(true);
           }, 1200);
@@ -33,21 +42,62 @@ export default function SearchOverlay() {
     return () => clearInterval(interval);
   }, []);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['search', searchTerm, userLocation],
-    queryFn: async () => {
-      if (!searchTerm || searchTerm.length < 2) return { results: [] };
-      const lat = userLocation?.lat || 0.3476;
-      const lng = userLocation?.lng || 32.5825;
-      const res = await fetch('/api/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: searchTerm, lat, lng })
-      });
-      return res.json();
-    },
-    enabled: searchTerm.length >= 2,
-  });
+  // geolocation for search
+  useEffect(() => {
+    if (!('geolocation' in navigator)) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLat(pos.coords.latitude);
+        setLng(pos.coords.longitude);
+      },
+      () => {
+        // leave defaults
+      }
+    );
+  }, []);
+
+  // perform search with radius fallback
+  useEffect(() => {
+    const doSearch = async () => {
+      if (searchTerm.length < 2) {
+        setSearchResults([]);
+        setNoResultsMessage('');
+        return;
+      }
+
+      setIsLoading(true);
+      let results = [];
+      for (const radius of [5, 10, 20]) {
+        const { data, error } = await supabase.rpc('search_items', {
+          search_query: searchTerm,
+          user_lat: lat,
+          user_lng: lng,
+          radius_km: radius,
+        });
+        if (error) {
+          console.error('search_items error', error);
+          break;
+        }
+        if (data && data.length > 0) {
+          results = data;
+          break;
+        }
+      }
+
+      if (results.length === 0) {
+        setNoResultsMessage('Nothing found near you');
+      } else {
+        setNoResultsMessage('');
+      }
+
+      setSearchResults(results);
+      setCurrentIndex(0);
+      setIsLoading(false);
+    };
+
+    const handler = setTimeout(doSearch, 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm, lat, lng, setSearchResults, setCurrentIndex]);
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
@@ -87,11 +137,11 @@ export default function SearchOverlay() {
               autoFocus
               placeholder="Search products or services..."
               className="w-full bg-neutral-900/80 backdrop-blur-md border border-neutral-800 rounded-full py-3 pl-10 pr-4 text-white text-sm font-sans focus:outline-none focus:border-white transition-all shadow-2xl"
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={handleSearchChange}
             />
             
             {/* Results Dropdown */}
-            {(searchTerm.length >= 2 && (isLoading || data?.results)) && (
+            {(searchTerm.length >= 2 && (isLoading || searchResults)) && (
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -99,19 +149,25 @@ export default function SearchOverlay() {
               >
                 {isLoading ? (
                   <div className="p-8 flex justify-center"><Loader2 className="animate-spin text-white" /></div>
-                ) : data?.results?.length > 0 ? (
-                  data.results.map((res) => (
+                ) : searchResults.length > 0 ? (
+                  searchResults.map((res, idx) => (
                     <button
                       key={`${res.business_id}-${res.item_id}`}
                       onClick={() => {
                         setSelectedBusiness(res);
                         setSearchTerm('');
+                        setCurrentIndex(idx);
                       }}
                       className="w-full p-4 flex items-center justify-between hover:bg-white/5 border-b border-white/5 last:border-0 transition-colors text-left"
                     >
                       <div>
                         <div className="text-white font-medium">{res.item_name}</div>
-                        <div className="text-neutral-500 text-sm">{res.business_name} • {res.sector}</div>
+                        <div className="text-neutral-500 text-sm">
+                          {res.business_name} • {res.sector}
+                          {res.distance_km != null && (
+                            <span className="ml-2">{res.distance_km.toFixed(1)}km</span>
+                          )}
+                        </div>
                       </div>
                       <div className="text-right">
                         <div className="text-white font-mono">{res.price ? `UGX ${res.price.toLocaleString()}` : '—'}</div>
@@ -119,7 +175,30 @@ export default function SearchOverlay() {
                     </button>
                   ))
                 ) : (
-                  <div className="p-8 text-center text-neutral-500 font-sans">Nothing found nearby</div>
+                  <div className="p-8 text-center text-neutral-500 font-sans">
+                    {noResultsMessage || 'Nothing found near you'}
+                  </div>
+                )}
+
+                {/* footer with counter and next */}
+                {searchResults.length > 0 && (
+                  <div className="p-4 flex justify-between items-center bg-neutral-900/80">
+                    <span className="text-neutral-400 text-sm">
+                      {currentIndex + 1} of {searchResults.length}
+                    </span>
+                    <button
+                      onClick={() => {
+                        if (currentIndex < searchResults.length - 1) {
+                          const next = currentIndex + 1;
+                          setCurrentIndex(next);
+                          setSelectedBusiness(searchResults[next]);
+                        }
+                      }}
+                      className="text-white text-sm font-bold"
+                    >
+                      Next
+                    </button>
+                  </div>
                 )}
               </motion.div>
             )}

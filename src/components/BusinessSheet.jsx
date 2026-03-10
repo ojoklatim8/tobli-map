@@ -1,13 +1,13 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Phone, Instagram, Send, ExternalLink } from 'lucide-react';
-import { useStore } from '../store/useStore';
+import { AnimatePresence } from 'framer-motion';
+import { X, Phone, Instagram, Send, ExternalLink, Loader2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { useStore } from '../store/useStore';
 
 export default function BusinessSheet() {
-  const { selectedBusiness, setSelectedBusiness } = useStore();
+  const { selectedBusiness, setSelectedBusiness, searchResults, userLocation } = useStore();
 
-  const { data: details } = useQuery({
+  useQuery({
     queryKey: ['business-details', selectedBusiness?.business_id],
     queryFn: async () => {
       const res = await fetch(`/api/businesses/${selectedBusiness.business_id}`);
@@ -18,8 +18,23 @@ export default function BusinessSheet() {
 
   if (!selectedBusiness) return null;
 
-  const business = details?.business || selectedBusiness;
-  const items = details?.items || [];
+  // construct business info from selectedBusiness (which came from search_results)
+  const business = {
+    business_name: selectedBusiness.business_name || selectedBusiness.name,
+    sector: selectedBusiness.sector,
+    description: selectedBusiness.description,
+    whatsapp: selectedBusiness.whatsapp,
+    phone: selectedBusiness.phone,
+    instagram: selectedBusiness.instagram,
+    x_handle: selectedBusiness.x_handle,
+    lat: selectedBusiness.lat,
+    lng: selectedBusiness.lng,
+  };
+
+  // all items matching this business from the last search
+  const items = searchResults
+    .filter((r) => r.business_id === selectedBusiness.business_id)
+    .map((r) => ({ id: r.item_id, name: r.item_name, type: r.type, price: r.price }));
 
   return (
     <AnimatePresence>
@@ -59,6 +74,16 @@ export default function BusinessSheet() {
               {business.whatsapp && (
                 <a href={`https://wa.me/${business.whatsapp}`} target="_blank" rel="noreferrer" className="flex-1 min-w-[120px] flex items-center justify-center gap-2 bg-[#25D366] text-white py-3 rounded-xl font-sans font-bold text-sm hover:opacity-90 transition-opacity">
                   <Send size={18} /> WhatsApp
+                </a>
+              )}
+              {(business.lat != null && business.lng != null && userLocation) && (
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${business.lat},${business.lng}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 min-w-[120px] flex items-center justify-center gap-2 bg-white text-black py-3 rounded-xl font-sans font-bold text-sm hover:bg-neutral-200 transition-colors"
+                >
+                  <ExternalLink size={18} /> Directions
                 </a>
               )}
             </div>

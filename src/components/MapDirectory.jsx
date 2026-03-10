@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, useMap, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
-import { useQuery } from '@tanstack/react-query';
 import { useStore } from '../store/useStore';
 
 // Custom Marker Icon
@@ -55,7 +54,7 @@ function MapController({ center, zoom }) {
 }
 
 export default function MapDirectory() {
-  const { userLocation, setUserLocation, selectedBusiness, setSelectedBusiness } = useStore();
+  const { userLocation, setUserLocation, selectedBusiness, setSelectedBusiness, searchResults, setCurrentIndex } = useStore();
   // mapConfig will be initialized when we receive the user's coordinates
   const [mapConfig, setMapConfig] = useState(null);
   const [locReady, setLocReady] = useState(false);
@@ -111,17 +110,16 @@ export default function MapDirectory() {
     }
   }, [userLocation]);
 
-  // Fetch all open businesses within reasonable range
-  const { data: businesses } = useQuery({
-    queryKey: ['businesses-nearby', userLocation],
-    queryFn: async () => {
-      const lat = userLocation?.lat || 0.3476;
-      const lng = userLocation?.lng || 32.5825;
-      const res = await fetch(`/api/businesses?lat=${lat}&lng=${lng}`);
-      return res.json();
-    },
-    enabled: !!userLocation,
-  });
+  // derive unique businesses from search results
+  const businesses = useMemo(() => {
+    const seen = new Map();
+    searchResults.forEach((r) => {
+      if (!seen.has(r.business_id)) {
+        seen.set(r.business_id, r);
+      }
+    });
+    return Array.from(seen.values());
+  }, [searchResults]);
 
   if (!locReady) {
     // still waiting for location permission/response
@@ -132,11 +130,13 @@ export default function MapDirectory() {
     );
   }
 
-  if (!userLocation || !mapConfig) {
-    // permission denied or location unavailable
+  // Use a default fallback location for development
+  const finalMapConfig = mapConfig || { center: [0.3476, 32.5825], zoom: 13 }; // Kampala, Uganda
+
+  if (!locReady) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-[#080A0F] text-white">
-        Unable to obtain location. Please enable device GPS.
+        Loading map…
       </div>
     );
   }
@@ -144,12 +144,12 @@ export default function MapDirectory() {
   return (
     <div className="h-screen w-full bg-[#080A0F]">
       <MapContainer 
-        center={mapConfig.center} 
-        zoom={mapConfig.zoom} 
+        center={finalMapConfig.center} 
+        zoom={finalMapConfig.zoom} 
         className="h-full w-full"
         zoomControl={false}
       >
-        <MapController center={mapConfig.center} zoom={mapConfig.zoom} />
+        <MapController center={finalMapConfig.center} zoom={finalMapConfig.zoom} />
         
         {/* CartoDB Dark Matter */}
         <TileLayer
@@ -173,13 +173,20 @@ export default function MapDirectory() {
         )}
 
         {/* Business Pins */}
-        {businesses?.results?.filter(b => b.is_open).map((b) => (
+        {businesses.map((b) => (
           <Marker
-            key={b.id}
+            key={b.business_id}
             position={[b.lat, b.lng]}
-            icon={createCustomIcon(selectedBusiness?.business_id === b.id)}
+            icon={createCustomIcon(selectedBusiness?.business_id === b.business_id)}
             eventHandlers={{
-              click: () => setSelectedBusiness(b),
+              click: () => {
+                // pick the first result for this business and update index
+                const idx = searchResults.findIndex(r => r.business_id === b.business_id);
+                if (idx !== -1) {
+                  setSelectedBusiness(searchResults[idx]);
+                  setCurrentIndex(idx);
+                }
+              },
             }}
           />
         ))}

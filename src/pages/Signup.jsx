@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { Loader2, ArrowRight, ArrowLeft, AlertCircle } from 'lucide-react';
-import { safeFetch } from '../lib/api';
+import { Loader2, ArrowRight, ArrowLeft, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useAuthStore } from '../store/authStore';
 
 export default function Signup() {
   const navigate = useNavigate();
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const { register, handleSubmit, watch, formState: { errors } } = useForm();
@@ -15,22 +16,20 @@ export default function Signup() {
   const onSubmit = async (data) => {
     setIsLoading(true);
     setError(null);
+    setSuccess(null);
     try {
-      const result = await safeFetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          business_name: data.business_name,
-          owner_name: data.owner_name,
-          sector: data.business_type,
-          phone: data.phone,
-          email: data.email,
-          password: data.password
-        }),
-      });
-
-      // Navigate to early-access with form data as state
-      navigate('/early-access', { state: { ...data, ...result } });
+      // map form fields to authStore.signUp signature
+      const user = await useAuthStore.getState().signUp(
+        data.business_name,
+        data.owner_name,
+        data.business_type,
+        data.phone,
+        data.email,
+        data.password
+      );
+      setSuccess('Account created');
+      setTimeout(() => navigate('/dashboard'), 500);
+      return user;
     } catch (err) {
       setError(err.message);
     } finally {
@@ -65,6 +64,12 @@ export default function Signup() {
               <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl flex items-center gap-3 text-red-500 text-sm">
                 <AlertCircle size={18} />
                 {error}
+              </div>
+            )}
+            {success && (
+              <div className="bg-green-500/10 border border-green-500/20 p-4 rounded-2xl flex items-center gap-3 text-green-500 text-sm">
+                <CheckCircle2 size={18} />
+                {success}
               </div>
             )}
 
@@ -176,7 +181,7 @@ export default function Signup() {
                 className="w-8 h-8 accent-black bg-white border-2 border-black rounded focus:ring-2 focus:ring-black transition-colors"
               />
               <label htmlFor="terms" className="text-sm text-neutral-200 cursor-pointer">
-                I agree to the <Link to="/terms" className="text-white hover:underline">Terms and Conditions</Link>
+                I agree to the <span className="text-white">Terms and Conditions</span>
               </label>
             </div>
             {errors.terms && <p className="text-red-500 text-xs mt-1 ml-1">{errors.terms.message}</p>}

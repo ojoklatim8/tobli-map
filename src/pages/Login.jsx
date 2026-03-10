@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { useStore } from '../store/useStore';
-import { Loader2, AlertCircle } from 'lucide-react';
-import { safeFetch } from '../lib/api';
+import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useAuthStore } from '../store/authStore';
 
 export default function Login() {
   const navigate = useNavigate();
-  const setUser = useStore((state) => state.setUser);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm();
@@ -16,23 +15,19 @@ export default function Login() {
   const onSubmit = async (data) => {
     setIsLoading(true);
     setError(null);
+    setSuccess(null);
     try {
-      const result = await safeFetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          identifier: data.identifier,
-          password: data.password
-        }),
-      });
-
-      // Store JWT and user data in Zustand
-      setUser({
-        token: result.token,
-        profile: result.business
-      });
-
-      navigate('/dashboard');
+      const session = await useAuthStore.getState().signIn(
+        data.identifier,
+        data.password
+      );
+      setSuccess('Login successful');
+      const { isAdmin } = useAuthStore.getState();
+      setTimeout(() => {
+        if (isAdmin) navigate('/admin');
+        else navigate('/dashboard');
+      }, 500);
+      return session;
     } catch (err) {
       setError(err.message);
     } finally {
@@ -63,6 +58,12 @@ export default function Login() {
                 {error}
               </div>
             )}
+            {success && (
+              <div className="bg-green-500/10 border border-green-500/20 p-4 rounded-2xl flex items-center gap-3 text-green-500 text-sm">
+                <CheckCircle2 size={18} />
+                {success}
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-neutral-400 mb-2 ml-1">Email or Phone Number</label>
@@ -78,9 +79,6 @@ export default function Login() {
             <div>
               <div className="flex justify-between items-center mb-2 ml-1">
                 <label className="text-sm font-medium text-neutral-400">Password</label>
-                <Link to="/forgot-password" weights className="text-xs text-white hover:underline">
-                  Forgot password?
-                </Link>
               </div>
               <input
                 {...register('password', { required: 'Password is required' })}
