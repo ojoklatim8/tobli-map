@@ -1,16 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Loader2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store/useStore';
-<<<<<<< HEAD
 import { supabase } from '../lib/supabase';
-=======
-<<<<<<< HEAD
-import { supabase } from '../lib/supabaseClient';
-=======
-import { supabase } from '../lib/supabase';
->>>>>>> 5a556e1 (Describe what you changed)
->>>>>>> 29214ca (update)
 
 export default function SearchOverlay() {
   const [text, setText] = useState('');
@@ -29,7 +21,6 @@ export default function SearchOverlay() {
     setSearchResults,
     setCurrentIndex,
     searchResults,
-    currentIndex,
   } = useStore();
 
   useEffect(() => {
@@ -50,28 +41,7 @@ export default function SearchOverlay() {
     return () => clearInterval(interval);
   }, []);
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-  const { data, isLoading } = useQuery({
-    queryKey: ['search', searchTerm, userLocation],
-    queryFn: async () => {
-      if (!searchTerm || searchTerm.length < 2) return { results: [] };
-      const lat = userLocation?.lat || 0.3476;
-      const lng = userLocation?.lng || 32.5825;
-      const { data, error } = await supabase.rpc('search_items_nearby', {
-        p_query: searchTerm,
-        p_lat: lat,
-        p_lng: lng,
-        p_radius_km: 5
-      });
-      if (error) throw error;
-      return { results: data || [] };
-    },
-    enabled: searchTerm.length >= 2,
-  });
-=======
->>>>>>> 29214ca (update)
+
   // geolocation for search
   useEffect(() => {
     if (!('geolocation' in navigator)) return;
@@ -128,10 +98,7 @@ export default function SearchOverlay() {
     const handler = setTimeout(doSearch, 300);
     return () => clearTimeout(handler);
   }, [searchTerm, lat, lng, setSearchResults, setCurrentIndex]);
-<<<<<<< HEAD
-=======
->>>>>>> 5a556e1 (Describe what you changed)
->>>>>>> 29214ca (update)
+
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
@@ -141,7 +108,7 @@ export default function SearchOverlay() {
     <div className="fixed inset-0 z-[1000] pointer-events-none flex flex-col items-center">
       <AnimatePresence>
         {!showSearchInput && (
-          <motion.div 
+          <Motion.div 
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="flex items-center justify-center h-screen w-full bg-[#080A0F]/50 backdrop-blur-sm pointer-events-auto"
@@ -150,12 +117,12 @@ export default function SearchOverlay() {
               {text}
               <span className="animate-pulse">|</span>
             </h1>
-          </motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
 
       {showSearchInput && (
-        <motion.div 
+        <Motion.div 
           layoutId="searchBar"
           initial={{ y: "45vh", scale: 1.2, opacity: 0 }}
           animate={{ y: 80, scale: 1, opacity: 1 }}
@@ -176,7 +143,7 @@ export default function SearchOverlay() {
             
             {/* Results Dropdown */}
             {(searchTerm.length >= 2 && (isLoading || searchResults)) && (
-              <motion.div 
+              <Motion.div 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="absolute top-full mt-2 w-full bg-neutral-900/95 backdrop-blur-xl border border-neutral-800 rounded-2xl overflow-hidden shadow-2xl max-h-[60vh] overflow-y-auto no-scrollbar"
@@ -214,30 +181,11 @@ export default function SearchOverlay() {
                   </div>
                 )}
 
-                {/* footer with counter and next */}
-                {searchResults.length > 0 && (
-                  <div className="p-4 flex justify-between items-center bg-neutral-900/80">
-                    <span className="text-neutral-400 text-sm">
-                      {currentIndex + 1} of {searchResults.length}
-                    </span>
-                    <button
-                      onClick={() => {
-                        if (currentIndex < searchResults.length - 1) {
-                          const next = currentIndex + 1;
-                          setCurrentIndex(next);
-                          setSelectedBusiness(searchResults[next]);
-                        }
-                      }}
-                      className="text-white text-sm font-bold"
-                    >
-                      Next
-                    </button>
-                  </div>
-                )}
-              </motion.div>
+
+              </Motion.div>
             )}
           </div>
-        </motion.div>
+        </Motion.div>
       )}
     </div>
   );

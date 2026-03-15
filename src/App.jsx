@@ -11,41 +11,10 @@ import { useEffect } from 'react';
 import { useAuthStore } from './store/authStore';
 
 function App() {
-<<<<<<< HEAD
   // load session once on mount
   useEffect(() => {
     useAuthStore.getState().loadSession();
   }, []);
-=======
-<<<<<<< HEAD
-  const setUser = useStore((s) => s.setUser);
-
-  useEffect(() => {
-    let mounted = true;
-
-    // Hydrate initial session.
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      setUser(data.session ? { session: data.session } : null);
-    });
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!mounted) return;
-      setUser(session ? { session } : null);
-    });
-
-    return () => {
-      mounted = false;
-      sub?.subscription?.unsubscribe?.();
-    };
-  }, [setUser]);
-=======
-  // load session once on mount
-  useEffect(() => {
-    useAuthStore.getState().loadSession();
-  }, []);
->>>>>>> 5a556e1 (Describe what you changed)
->>>>>>> 29214ca (update)
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -1,18 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-<<<<<<< HEAD
 import { Loader2, ArrowRight, ArrowLeft, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
-=======
-<<<<<<< HEAD
-import { Loader2, ArrowRight, ArrowLeft, AlertCircle } from 'lucide-react';
-import { supabase } from '../lib/supabaseClient';
-=======
-import { Loader2, ArrowRight, ArrowLeft, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { useAuthStore } from '../store/authStore';
->>>>>>> 5a556e1 (Describe what you changed)
->>>>>>> 29214ca (update)
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -28,35 +18,7 @@ export default function Signup() {
     setError(null);
     setSuccess(null);
     try {
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-      });
-      if (authError) throw authError;
 
-      // Create the business profile row tied to auth.users.id.
-      const userId = authData.user?.id;
-      if (userId) {
-        const { error: profileError } = await supabase.from('businesses').insert({
-          id: userId,
-          name: data.business_name,
-          owner_name: data.owner_name,
-          sector: data.business_type,
-          phone: data.phone,
-          email: data.email,
-          subscription_status: 'inactive',
-          is_open: true,
-        });
-        if (profileError) throw profileError;
-      }
-
-      // Navigate to early-access with form data as state
-      navigate('/early-access', { state: { ...data } });
-=======
->>>>>>> 29214ca (update)
       // map form fields to authStore.signUp signature
       const user = await useAuthStore.getState().signUp(
         data.business_name,
@@ -69,10 +31,7 @@ export default function Signup() {
       setSuccess('Account created');
       setTimeout(() => navigate('/dashboard'), 500);
       return user;
-<<<<<<< HEAD
-=======
->>>>>>> 5a556e1 (Describe what you changed)
->>>>>>> 29214ca (update)
+
     } catch (err) {
       setError(err.message);
     } finally {

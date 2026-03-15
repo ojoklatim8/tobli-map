@@ -1,19 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-<<<<<<< HEAD
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
-=======
-<<<<<<< HEAD
-import { useStore } from '../store/useStore';
-import { Loader2, AlertCircle } from 'lucide-react';
-import { supabase } from '../lib/supabaseClient';
-=======
-import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { useAuthStore } from '../store/authStore';
->>>>>>> 5a556e1 (Describe what you changed)
->>>>>>> 29214ca (update)
 
 export default function Login() {
   const navigate = useNavigate();
@@ -28,25 +17,7 @@ export default function Login() {
     setError(null);
     setSuccess(null);
     try {
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-      const identifier = (data.identifier || '').trim();
-      if (!identifier.includes('@')) {
-        throw new Error('Please log in with your email address (phone login is not enabled yet).');
-      }
 
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: identifier,
-        password: data.password,
-      });
-      if (authError) throw authError;
-
-      setUser(authData.session ? { session: authData.session } : null);
-
-      navigate('/dashboard');
-=======
->>>>>>> 29214ca (update)
       const session = await useAuthStore.getState().signIn(
         data.identifier,
         data.password
@@ -58,10 +29,7 @@ export default function Login() {
         else navigate('/dashboard');
       }, 500);
       return session;
-<<<<<<< HEAD
-=======
->>>>>>> 5a556e1 (Describe what you changed)
->>>>>>> 29214ca (update)
+
     } catch (err) {
       setError(err.message);
     } finally {

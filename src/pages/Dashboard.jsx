@@ -1,20 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-<<<<<<< HEAD
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
-=======
-<<<<<<< HEAD
-import { useNavigate, Link } from 'react-router-dom';
-import { useStore } from '../store/useStore';
-import { supabase } from '../lib/supabaseClient';
-=======
-import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../store/authStore';
-import { supabase } from '../lib/supabase';
->>>>>>> 5a556e1 (Describe what you changed)
->>>>>>> 29214ca (update)
 import { 
   BarChart3, List, Settings, CreditCard, 
   MapPin, Power, Plus, Upload, Trash2, 
@@ -30,42 +18,6 @@ export default function Dashboard() {
   const { session, business, loading: authLoading } = useAuthStore();
   const [activeTab, setActiveTab] = useState('overview');
 
-<<<<<<< HEAD
-  // Auth Guard
-  useEffect(() => {
-    if (!authLoading && !session?.user) {
-      navigate('/login');
-    }
-  }, [session, authLoading, navigate]);
-=======
-<<<<<<< HEAD
- // Auth Guard
- useEffect(() => {
-   if (!session) {
-     navigate('/login');
-   }
- }, [session, navigate]);
->>>>>>> 29214ca (update)
-
-  // Fetch Business Data from authStore (already loaded)
-  const businessLoading = authLoading;
-
-  // Fetch Listings via Supabase
-  const { data: listings, isLoading: listingsLoading } = useQuery({
-    queryKey: ['my-listings'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('items')
-        .select('*')
-        .eq('business_id', business.id);
-      if (error) throw error;
-      return { results: data };
-    },
-<<<<<<< HEAD
-    enabled: !!business?.id
-=======
-  enabled: !!userId
-=======
   // Auth Guard
   useEffect(() => {
     if (!authLoading && !session?.user) {
@@ -88,79 +40,29 @@ export default function Dashboard() {
       return { results: data };
     },
     enabled: !!business?.id
->>>>>>> 5a556e1 (Describe what you changed)
->>>>>>> 29214ca (update)
   });
 
   // Mutations
   const { signOut } = useAuthStore();
   const toggleOpen = useMutation({
     mutationFn: async () => {
-<<<<<<< HEAD
-      const newVal = !business.is_open;
-=======
-<<<<<<< HEAD
-      const current = businessData?.business?.is_open;
->>>>>>> 29214ca (update)
-      const { error } = await supabase
-        .from('businesses')
-        .update({ is_open: newVal, updated_at: new Date() })
-        .eq('id', business.id);
-      if (error) throw error;
-<<<<<<< HEAD
-=======
-      return { message: 'Toggled' };
-=======
       const newVal = !business.is_open;
       const { error } = await supabase
         .from('businesses')
         .update({ is_open: newVal, updated_at: new Date() })
         .eq('id', business.id);
       if (error) throw error;
->>>>>>> 5a556e1 (Describe what you changed)
->>>>>>> 29214ca (update)
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['my-business']);
     }
   });
 
-<<<<<<< HEAD
   if (businessLoading) return (
     <div className="h-screen w-full flex items-center justify-center bg-[#080A0F]">
       <Loader2 className="animate-spin text-white w-12 h-12" />
     </div>
   );
-
-=======
-<<<<<<< HEAD
-  if (businessLoading || !businessData) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center bg-[#080A0F]">
-        <Loader2 className="animate-spin text-white w-12 h-12" />
-      </div>
-    );
-  }
-
-  if (businessError) {
-    return (
-      <div className="h-screen w-full flex flex-col items-center justify-center bg-[#080A0F] text-white px-6 text-center">
-        <h1 className="text-2xl font-syne font-bold mb-4">Unable to load your dashboard</h1>
-        <p className="text-sm text-neutral-400 max-w-md">
-          There was an error loading your business profile. Please refresh the page, check your connection, or contact support if the problem persists.
-        </p>
-      </div>
-    );
-  }
-=======
-  if (businessLoading) return (
-    <div className="h-screen w-full flex items-center justify-center bg-[#080A0F]">
-      <Loader2 className="animate-spin text-white w-12 h-12" />
-    </div>
-  );
->>>>>>> 5a556e1 (Describe what you changed)
-
->>>>>>> 29214ca (update)
   if (!business) return (
     <div className="h-screen w-full flex items-center justify-center bg-[#080A0F] text-white flex-col gap-4">
       <Loader2 className="animate-spin w-12 h-12" />
@@ -169,16 +71,19 @@ export default function Dashboard() {
   );
 
   const isSubActive = business.subscription_status === 'active';
-  const isMapVisible = business.is_open && isSubActive;
 
   return (
     <div className="min-h-screen bg-[#080A0F] text-white font-sans flex flex-col">
       {/* Topbar */}
       <header className="border-b border-white/5 bg-neutral-900/20 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="text-xl font-syne font-extrabold tracking-tighter">TOBLI</div>
+          {/* Top Left: Business Name */}
+          <div className="text-xl font-syne font-extrabold tracking-tighter text-white">
+            {business.name}
+          </div>
+          
           <div className="flex items-center gap-6">
-            <span className="text-sm font-medium text-neutral-400 hidden sm:block">{business.name}</span>
+            {/* Top Center/Right: Colored Toggle */}
             <div className="flex items-center gap-2 bg-neutral-900/50 p-1 rounded-full border border-white/5">
               <span className={`text-[9px] uppercase font-bold tracking-widest pl-2 ${business.is_open ? 'text-green-500' : 'text-neutral-500'}`}>
                 {business.is_open ? 'Open' : 'Closed'}
@@ -190,22 +95,13 @@ export default function Dashboard() {
                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${business.is_open ? 'left-5.5' : 'left-0.5'}`} />
               </button>
             </div>
-<<<<<<< HEAD
-            <button onClick={() => signOut()} className="p-2 text-neutral-500 hover:text-white transition-colors">
-=======
-<<<<<<< HEAD
-            <button
-              onClick={async () => {
-                await supabase.auth.signOut();
-                setUser(null);
-              }}
-              className="p-2 text-neutral-500 hover:text-white transition-colors"
+            
+            {/* Far Top Right: Logout */}
+            <button 
+              onClick={() => signOut()} 
+              className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-full text-neutral-300 hover:text-white hover:bg-white/10 transition-colors font-bold text-xs uppercase"
             >
-=======
-            <button onClick={() => signOut()} className="p-2 text-neutral-500 hover:text-white transition-colors">
->>>>>>> 5a556e1 (Describe what you changed)
->>>>>>> 29214ca (update)
-              <Power size={18} />
+              <Power size={14} /> Logout
             </button>
           </div>
         </div>
@@ -244,19 +140,9 @@ export default function Dashboard() {
 
         {/* Tab Content */}
         <section className="flex-1 bg-neutral-900/30 rounded-[32px] border border-white/5 p-8 relative min-h-[600px]">
-          {activeTab === 'overview' && <OverviewTab business={business} isMapVisible={isMapVisible} listingsCount={listings?.results?.length || 0} />}
-<<<<<<< HEAD
+          {activeTab === 'overview' && <OverviewTab business={business} listingsCount={listings?.results?.length || 0} />}
           {activeTab === 'listings' && <ListingsTab listings={listings?.results || []} loading={listingsLoading} queryClient={queryClient} />}
           {activeTab === 'info' && <InfoTab business={business} queryClient={queryClient} />}
-=======
-<<<<<<< HEAD
-          {activeTab === 'listings' && <ListingsTab listings={listings?.results || []} queryClient={queryClient} userId={userId} />}
-          {activeTab === 'info' && <InfoTab business={business} userId={userId} queryClient={queryClient} />}
-=======
-          {activeTab === 'listings' && <ListingsTab listings={listings?.results || []} loading={listingsLoading} queryClient={queryClient} />}
-          {activeTab === 'info' && <InfoTab business={business} queryClient={queryClient} />}
->>>>>>> 5a556e1 (Describe what you changed)
->>>>>>> 29214ca (update)
           {activeTab === 'subscription' && <SubscriptionTab business={business} />}
         </section>
       </main>
@@ -264,11 +150,20 @@ export default function Dashboard() {
   );
 }
 
-function OverviewTab({ business, isMapVisible, listingsCount }) {
+function OverviewTab({ business, listingsCount }) {
   return (
     <div className="space-y-8">
-      <h2 className="text-xl font-syne font-bold">Performance</h2>
+      <h2 className="text-xl font-syne font-bold">Performance Overview</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <div className="bg-neutral-900 border border-white/5 p-6 rounded-3xl">
+          <div className="text-neutral-500 text-xs uppercase tracking-widest font-bold mb-2">Subscription</div>
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${business.subscription_status === 'active' ? 'bg-green-500' : 'bg-red-500'}`} />
+            <span className="text-xl font-bold">{business.subscription_status === 'active' ? 'Active' : 'Expired'}</span>
+          </div>
+        </div>
+
         <div className="bg-neutral-900 border border-white/5 p-6 rounded-3xl">
           <div className="text-neutral-500 text-xs uppercase tracking-widest font-bold mb-2">Status</div>
           <div className="flex items-center gap-2">
@@ -276,21 +171,14 @@ function OverviewTab({ business, isMapVisible, listingsCount }) {
             <span className="text-xl font-bold">{business.is_open ? 'Open' : 'Closed'}</span>
           </div>
         </div>
+        
         <div className="bg-neutral-900 border border-white/5 p-6 rounded-3xl">
-          <div className="text-neutral-500 text-xs uppercase tracking-widest font-bold mb-2">Listings</div>
+          <div className="text-neutral-500 text-xs uppercase tracking-widest font-bold mb-2">Goods / Services</div>
           <div className="text-2xl font-syne font-bold">{listingsCount}</div>
         </div>
+
         <div className="bg-neutral-900 border border-white/5 p-6 rounded-3xl">
-          <div className="text-neutral-500 text-xs uppercase tracking-widest font-bold mb-2">Map Visibility</div>
-          <div className="flex items-center gap-2">
-            <CheckBox isChecked={isMapVisible} />
-            <span className={`text-xl font-bold ${isMapVisible ? 'text-green-500' : 'text-neutral-500'}`}>
-              {isMapVisible ? 'Visible' : 'Hidden'}
-            </span>
-          </div>
-        </div>
-        <div className="bg-neutral-900 border border-white/5 p-6 rounded-3xl">
-          <div className="text-neutral-500 text-xs uppercase tracking-widest font-bold mb-2">Today's Views</div>
+          <div className="text-neutral-500 text-xs uppercase tracking-widest font-bold mb-2">Map Appearances</div>
           <div className="text-2xl font-syne font-bold font-mono">248</div>
         </div>
       </div>
@@ -304,50 +192,20 @@ function CheckBox({ isChecked }) {
   );
 }
 
-<<<<<<< HEAD
 function ListingsTab({ listings, loading, queryClient }) {
-=======
-<<<<<<< HEAD
-function ListingsTab({ listings, queryClient, userId }) {
-=======
-function ListingsTab({ listings, loading, queryClient }) {
->>>>>>> 5a556e1 (Describe what you changed)
->>>>>>> 29214ca (update)
   const [showAdd, setShowAdd] = useState(false);
   const [formData, setFormData] = useState({ name: '', type: 'product', price: '', available: true });
   const [isBulkLoading, setIsBulkLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const addMutation = useMutation({
     mutationFn: async (data) => {
-<<<<<<< HEAD
       const { data: session } = await supabase.auth.getSession();
       const uid = session?.user?.id;
       const { error } = await supabase
         .from('items')
         .insert([{ business_id: uid, ...data }]);
       if (error) throw error;
-=======
-<<<<<<< HEAD
-      const payload = {
-        business_id: userId,
-        name: data.name,
-        type: data.type,
-        price: data.price === '' ? null : Number(data.price),
-        available: !!data.available,
-        featured: false,
-      };
-      const { error } = await supabase.from('items').insert(payload);
-      if (error) throw error;
-      return { message: 'Created' };
-=======
-      const { data: session } = await supabase.auth.getSession();
-      const uid = session?.user?.id;
-      const { error } = await supabase
-        .from('items')
-        .insert([{ business_id: uid, ...data }]);
-      if (error) throw error;
->>>>>>> 5a556e1 (Describe what you changed)
->>>>>>> 29214ca (update)
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['my-listings']);
@@ -357,33 +215,6 @@ function ListingsTab({ listings, loading, queryClient }) {
   });
 
   const toggleStatus = useMutation({
-<<<<<<< HEAD
-    mutationFn: async ({ id, key }) => {
-      const { data: session } = await supabase.auth.getSession();
-      const uid = session?.user?.id;
-      const update = {};
-      update[key] = true; // value doesn't matter, we will flip server side
-      // We'll fetch current value and flip
-      const { data: item, error: fetchErr } = await supabase
-        .from('items')
-        .select(key)
-        .eq('id', id)
-        .eq('business_id', uid)
-        .single();
-      if (fetchErr) throw fetchErr;
-      const newVal = !item[key];
-=======
-<<<<<<< HEAD
-    mutationFn: async ({ id, key, nextValue }) => {
->>>>>>> 29214ca (update)
-      const { error } = await supabase
-        .from('items')
-        .update({ [key]: newVal })
-        .eq('id', id)
-<<<<<<< HEAD
-=======
-        .eq('business_id', userId);
-=======
     mutationFn: async ({ id, key }) => {
       const { data: session } = await supabase.auth.getSession();
       const uid = session?.user?.id;
@@ -402,7 +233,6 @@ function ListingsTab({ listings, loading, queryClient }) {
         .from('items')
         .update({ [key]: newVal })
         .eq('id', id)
->>>>>>> 29214ca (update)
         .eq('business_id', uid);
       if (error) throw error;
     },
@@ -418,10 +248,6 @@ function ListingsTab({ listings, loading, queryClient }) {
         .delete()
         .eq('id', id)
         .eq('business_id', uid);
-<<<<<<< HEAD
-=======
->>>>>>> 5a556e1 (Describe what you changed)
->>>>>>> 29214ca (update)
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries(['my-listings'])
@@ -437,26 +263,6 @@ function ListingsTab({ listings, loading, queryClient }) {
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const json = XLSX.utils.sheet_to_json(sheet);
       
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-      const rows = (json || [])
-        .map((r) => ({
-          business_id: userId,
-          name: String(r.name || r.Name || '').trim(),
-          type: (String(r.type || r.Type || 'product').toLowerCase() === 'service') ? 'service' : 'product',
-          price: r.price ?? r.Price ?? null,
-          available: r.available ?? r.Available ?? true,
-          featured: r.featured ?? r.Featured ?? false,
-        }))
-        .filter((r) => r.name.length > 0);
-
-      if (rows.length > 0) {
-        const { error } = await supabase.from('items').insert(rows);
-        if (error) throw error;
-      }
-=======
->>>>>>> 29214ca (update)
       // prepare rows with defaults
       const { data: session } = await supabase.auth.getSession();
       const uid = session?.user?.id;
@@ -469,10 +275,6 @@ function ListingsTab({ listings, loading, queryClient }) {
       }));
       const { error } = await supabase.from('items').insert(rows);
       if (error) console.error('bulk insert error', error);
-<<<<<<< HEAD
-=======
->>>>>>> 5a556e1 (Describe what you changed)
->>>>>>> 29214ca (update)
       queryClient.invalidateQueries(['my-listings']);
       setIsBulkLoading(false);
     };
@@ -481,18 +283,42 @@ function ListingsTab({ listings, loading, queryClient }) {
 
   const { getRootProps, getInputProps } = useDropzone({ onDrop, accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] } });
 
+  const exportTemplate = () => {
+    const ws = XLSX.utils.json_to_sheet([
+      { 'Item Name': 'Example Product', 'Type': 'product', 'Price': 50000 },
+      { 'Item Name': 'Example Service', 'Type': 'service', 'Price': 150000 }
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Template');
+    XLSX.writeFile(wb, 'Tobli_Listings_Template.xlsx');
+  };
+
+  const filteredListings = listings.filter(item => 
+    item.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   if (loading) return (
     <div className="h-64 flex items-center justify-center"><Loader2 className="animate-spin text-white" size={32}/></div>
   );
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h2 className="text-xl font-syne font-bold">Listings</h2>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
+          <input 
+            type="text" 
+            placeholder="Search listings..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="bg-neutral-800 border-none rounded-2xl px-4 py-2 text-sm w-full md:w-48"
+          />
+          <button onClick={exportTemplate} className="bg-white/5 border border-white/10 hover:bg-white/10 px-4 py-2 rounded-full font-bold text-xs transition-colors">
+            Export Template
+          </button>
           <div {...getRootProps()} className="cursor-pointer bg-neutral-800 hover:bg-neutral-700 px-4 py-2 rounded-full flex items-center gap-2 font-bold text-xs transition-colors">
             <input {...getInputProps()} />
-            {isBulkLoading ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />} Excel Bulk
+            {isBulkLoading ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />} Upload Excel
           </div>
           <button onClick={() => setShowAdd(true)} className="bg-white text-black px-4 py-2 rounded-full flex items-center gap-2 font-bold text-xs hover:bg-neutral-200 transition-colors">
             <Plus size={16} /> Add Listing
@@ -531,26 +357,32 @@ function ListingsTab({ listings, loading, queryClient }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
-            {listings.map(item => (
-              <tr key={item.id} className="group hover:bg-white/5 transition-colors">
-                <td className="py-4 font-medium">{item.name}</td>
-                <td className="py-4 text-sm text-neutral-400 uppercase tracking-tighter">{item.type}</td>
-                <td className="py-4 text-right font-mono text-white/80">UGX {item.price?.toLocaleString()}</td>
-                <td className="py-4 text-center">
-                  <button onClick={() => toggleStatus.mutate({ id: item.id, key: 'available' })} className={`w-8 h-4 rounded-full relative ${item.available ? 'bg-green-500' : 'bg-neutral-800'}`}>
-                    <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${item.available ? 'left-4.5' : 'left-0.5'}`} />
-                  </button>
-                </td>
-                <td className="py-4 text-center">
-                  <button onClick={() => toggleStatus.mutate({ id: item.id, key: 'featured' })} className={`w-8 h-4 rounded-full relative ${item.featured ? 'bg-indigo-500' : 'bg-neutral-800'}`}>
-                    <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${item.featured ? 'left-4.5' : 'left-0.5'}`} />
-                  </button>
-                </td>
-                <td className="py-4 text-right pr-4">
-                  <button onClick={() => deleteMutation.mutate(item.id)} className="text-neutral-500 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
-                </td>
+            {filteredListings.length > 0 ? (
+              filteredListings.map(item => (
+                <tr key={item.id} className="group hover:bg-white/5 transition-colors">
+                  <td className="py-4 font-medium">{item.name}</td>
+                  <td className="py-4 text-sm text-neutral-400 uppercase tracking-tighter">{item.type}</td>
+                  <td className="py-4 text-right font-mono text-white/80">UGX {item.price?.toLocaleString()}</td>
+                  <td className="py-4 text-center">
+                    <button onClick={() => toggleStatus.mutate({ id: item.id, key: 'available' })} className={`w-8 h-4 rounded-full relative ${item.available ? 'bg-green-500' : 'bg-neutral-800'}`}>
+                      <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${item.available ? 'left-4.5' : 'left-0.5'}`} />
+                    </button>
+                  </td>
+                  <td className="py-4 text-center">
+                    <button onClick={() => toggleStatus.mutate({ id: item.id, key: 'featured' })} className={`w-8 h-4 rounded-full relative ${item.featured ? 'bg-indigo-500' : 'bg-neutral-800'}`}>
+                      <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${item.featured ? 'left-4.5' : 'left-0.5'}`} />
+                    </button>
+                  </td>
+                  <td className="py-4 text-right pr-4">
+                    <button onClick={() => deleteMutation.mutate(item.id)} className="text-neutral-500 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="6" className="py-8 text-center text-neutral-500">No items found.</td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
@@ -558,15 +390,7 @@ function ListingsTab({ listings, loading, queryClient }) {
   );
 }
 
-<<<<<<< HEAD
 function InfoTab({ business, queryClient }) {
-=======
-<<<<<<< HEAD
-function InfoTab({ business, userId, queryClient }) {
-=======
-function InfoTab({ business, queryClient }) {
->>>>>>> 5a556e1 (Describe what you changed)
->>>>>>> 29214ca (update)
   const [form, setForm] = useState({ ...business });
   const [msg, setMsg] = useState(null);
 
@@ -580,7 +404,6 @@ function InfoTab({ business, queryClient }) {
 
   const update = useMutation({
     mutationFn: async (data) => {
-<<<<<<< HEAD
       const { data: session } = await supabase.auth.getSession();
       const uid = session?.user?.id;
       const { error } = await supabase
@@ -588,33 +411,6 @@ function InfoTab({ business, queryClient }) {
         .update({ ...data, updated_at: new Date() })
         .eq('id', uid);
       if (error) throw error;
-=======
-<<<<<<< HEAD
-      const payload = {
-        name: data.name,
-        owner_name: data.owner_name,
-        sector: data.sector,
-        description: data.description,
-        lat: data.lat,
-        lng: data.lng,
-        whatsapp: data.whatsapp,
-        phone: data.phone,
-        email: data.email,
-        instagram: data.instagram,
-        x_handle: data.x_handle,
-      };
-      const { error } = await supabase.from('businesses').update(payload).eq('id', userId);
-      if (error) throw error;
-      return { message: 'Updated' };
-=======
-      const { data: session } = await supabase.auth.getSession();
-      const uid = session?.user?.id;
-      const { error } = await supabase
-        .from('businesses')
-        .update({ ...data, updated_at: new Date() })
-        .eq('id', uid);
-      if (error) throw error;
->>>>>>> 29214ca (update)
       return true;
     },
     onSuccess: () => {
@@ -623,10 +419,6 @@ function InfoTab({ business, queryClient }) {
     },
     onError: (e) => {
       setMsg(e.message);
-<<<<<<< HEAD
-=======
->>>>>>> 5a556e1 (Describe what you changed)
->>>>>>> 29214ca (update)
     }
   });
 
@@ -691,6 +483,7 @@ function InfoTab({ business, queryClient }) {
             <InputField label="Phone Number" value={form.phone} onChange={v => setForm({...form, phone: v})} icon={<Phone size={16}/>} />
             <InputField label="Instagram User" value={form.instagram} onChange={v => setForm({...form, instagram: v})} icon={<Instagram size={16}/>} />
             <InputField label="X / Twitter" value={form.x_handle} onChange={v => setForm({...form, x_handle: v})} />
+            <InputField label="Website (e.g. example.com)" value={form.website} onChange={v => setForm({...form, website: v})} icon={<Globe size={16}/>} />
           </div>
         </div>
       </div>
@@ -810,18 +603,12 @@ function SubscriptionTab({ business }) {
             </div>
           </div>
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
           <button
             onClick={() => window.alert('Online renewals will be available soon. Please contact support to renew your subscription.')}
             className="w-full bg-white text-black font-extrabold py-3.5 rounded-xl hover:bg-neutral-200 transition-colors text-sm"
           >
             Renew / Extend Subscription
           </button>
-=======
->>>>>>> 5a556e1 (Describe what you changed)
->>>>>>> 29214ca (update)
         </div>
 
         <div className="bg-white/5 p-8 rounded-[32px] border border-dashed border-white/10 flex flex-col justify-center items-center text-center">

@@ -1,5 +1,5 @@
 export default {
-  async scheduled(event, env, ctx) {
+  async scheduled(event, env) {
     const db = env.DB;
     
     console.log(`[Cron] Resetting business status at ${new Date().toISOString()}`);

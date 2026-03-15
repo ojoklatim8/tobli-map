@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, useMap, CircleMarker } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap, CircleMarker, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import { useStore } from '../store/useStore';
 
@@ -16,21 +16,23 @@ const createCustomIcon = (isSelected) => L.divIcon({
   iconAnchor: [12, 12]
 });
 
-function MapController({ center, zoom }) {
+function MapController({ center, zoom, bounds }) {
   const map = useMap();
 
-  // whenever the provided center/zoom change, animate the map there
   useEffect(() => {
-    console.debug('MapController center changed:', center, 'zoom:', zoom);
-    if (center) {
+    if (bounds) {
+      map.fitBounds(bounds, { animate: true, duration: 1.1, padding: [50, 50] });
+    } else if (center) {
       map.flyTo(center, zoom, { animate: true, duration: 1.1 });
     }
-  }, [center, zoom, map]);
+  }, [center, zoom, bounds, map]);
 
   // if the user somehow moves the map (drag, zoom, etc.), immediately snap back
   useEffect(() => {
     const handleMoveEnd = () => {
-      if (center) {
+      if (bounds) {
+        map.fitBounds(bounds, { padding: [50, 50] });
+      } else if (center) {
         map.setView(center, zoom);
       }
     };
@@ -38,7 +40,7 @@ function MapController({ center, zoom }) {
     return () => {
       map.off('moveend', handleMoveEnd);
     };
-  }, [center, zoom, map]);
+  }, [center, zoom, bounds, map]);
 
   // disable all interactive behaviours so the pin always stays centred
   useEffect(() => {
@@ -56,20 +58,18 @@ function MapController({ center, zoom }) {
 export default function MapDirectory() {
   const { userLocation, setUserLocation, selectedBusiness, setSelectedBusiness, searchResults, setCurrentIndex } = useStore();
   // mapConfig will be initialized when we receive the user's coordinates
+  const hasGeo = "geolocation" in navigator;
   const [mapConfig, setMapConfig] = useState(null);
-  const [locReady, setLocReady] = useState(false);
+  const [locReady, setLocReady] = useState(!hasGeo); // ready immediately if no geolocation
 
   // try to acquire the device position immediately, then keep watching it
   useEffect(() => {
-    if (!("geolocation" in navigator)) {
-      // if geolocation isn't available just mark ready so the map shows the default
-      console.warn('Geolocation API not available');
-      setLocReady(true);
+    if (!hasGeo) {
+      // no geolocation – already set locReady during init
       return;
     }
 
     const fillLocation = (loc) => {
-      console.debug('fillLocation called', loc);
       setUserLocation(loc);
       // set the map centre and zoom once we have coords
       setMapConfig({ center: [loc.lat, loc.lng], zoom: 18 });
@@ -80,9 +80,8 @@ export default function MapDirectory() {
       (position) => {
         fillLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
       },
-      (error) => {
-        console.error('getCurrentPosition failed', error);
-        // permission denied or other error – we won't render the map
+      () => {
+        // permission denied or other error
         setLocReady(true);
       },
       { enableHighAccuracy: true, maximumAge: 10000 }
@@ -92,45 +91,24 @@ export default function MapDirectory() {
       (position) => {
         fillLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
       },
-      (err) => {
-        console.error('watchPosition error', err);
+      () => {
         // ignore watch errors
       },
       { enableHighAccuracy: true, maximumAge: 10000 }
     );
 
     return () => navigator.geolocation.clearWatch(watcher);
-  }, [setUserLocation]);
+  }, [hasGeo, setUserLocation]);
 
-  // ensure mapConfig always follows userLocation, including updates from watchPosition
-  useEffect(() => {
+  // derive effective map config from userLocation (replaces the old sync-setState effect)
+  const effectiveMapConfig = useMemo(() => {
     if (userLocation) {
-      console.debug('syncing mapConfig from userLocation', userLocation);
-      setMapConfig({ center: [userLocation.lat, userLocation.lng], zoom: 18 });
+      return { center: [userLocation.lat, userLocation.lng], zoom: 18 };
     }
-  }, [userLocation]);
+    return mapConfig;
+  }, [userLocation, mapConfig]);
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-  // Fetch all open businesses within reasonable range
-  const { data: businesses } = useQuery({
-    queryKey: ['businesses-nearby', userLocation],
-    queryFn: async () => {
-      const lat = userLocation?.lat || 0.3476;
-      const lng = userLocation?.lng || 32.5825;
-      const { data, error } = await supabase.rpc('businesses_nearby', {
-        p_lat: lat,
-        p_lng: lng,
-        p_radius_km: 5
-      });
-      if (error) throw error;
-      return { results: data || [] };
-    },
-    enabled: !!userLocation,
-  });
-=======
->>>>>>> 29214ca (update)
+
   // derive unique businesses from search results
   const businesses = useMemo(() => {
     const seen = new Map();
@@ -141,13 +119,20 @@ export default function MapDirectory() {
     });
     return Array.from(seen.values());
   }, [searchResults]);
-<<<<<<< HEAD
-=======
->>>>>>> 5a556e1 (Describe what you changed)
->>>>>>> 29214ca (update)
+
+
+  // Calculate bounds if a business is selected (must be before any early returns – hooks rules)
+  const activeBounds = useMemo(() => {
+    if (selectedBusiness?.lat && selectedBusiness?.lng && userLocation) {
+      return L.latLngBounds(
+        [userLocation.lat, userLocation.lng],
+        [selectedBusiness.lat, selectedBusiness.lng]
+      ).pad(0.2);
+    }
+    return null;
+  }, [selectedBusiness, userLocation]);
 
   if (!locReady) {
-    // still waiting for location permission/response
     return (
       <div className="h-screen w-full flex items-center justify-center bg-[#080A0F] text-white">
         Requesting location permission…
@@ -156,15 +141,7 @@ export default function MapDirectory() {
   }
 
   // Use a default fallback location for development
-  const finalMapConfig = mapConfig || { center: [0.3476, 32.5825], zoom: 13 }; // Kampala, Uganda
-
-  if (!locReady) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center bg-[#080A0F] text-white">
-        Loading map…
-      </div>
-    );
-  }
+  const finalMapConfig = effectiveMapConfig || { center: [0.3476, 32.5825], zoom: 13 }; // Kampala, Uganda
 
   return (
     <div className="h-screen w-full bg-[#080A0F]">
@@ -174,7 +151,7 @@ export default function MapDirectory() {
         className="h-full w-full"
         zoomControl={false}
       >
-        <MapController center={finalMapConfig.center} zoom={finalMapConfig.zoom} />
+        <MapController center={finalMapConfig.center} zoom={finalMapConfig.zoom} bounds={activeBounds} />
         
         {/* CartoDB Dark Matter */}
         <TileLayer
@@ -215,6 +192,18 @@ export default function MapDirectory() {
             }}
           />
         ))}
+
+        {/* Dynamic routing line */}
+        {selectedBusiness?.lat && selectedBusiness?.lng && userLocation && (
+          <Polyline 
+            positions={[
+              [userLocation.lat, userLocation.lng],
+              [selectedBusiness.lat, selectedBusiness.lng]
+            ]}
+            pathOptions={{ color: '#6366f1', weight: 4, dashArray: '8, 8' }}
+            className="animate-pulse"
+          />
+        )}
       </MapContainer>
     </div>
   );
